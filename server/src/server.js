@@ -13,20 +13,32 @@ import adminRoutes from './routes/admin.js';
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+// Allowed frontend origins
+const allowedOrigins = (
+  process.env.CLIENT_URL ||
+  'http://localhost:5173,https://campusfind-jet.vercel.app'
+)
   .split(',')
-  .map((origin) => origin.trim())
+  .map(origin => origin.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
+// CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
+    const normalizedOrigin = origin
+      ? origin.replace(/\/+$/, '')
+      : '';
+
     if (
       !origin ||
-      allowedOrigins.includes(origin) ||
-      allowedOrigins.includes('*')
+      allowedOrigins.includes(normalizedOrigin)
     ) {
       return callback(null, true);
     }
+
+    console.error(
+      `CORS blocked origin: ${origin}. Allowed origins: ${allowedOrigins.join(', ')}`
+    );
 
     return callback(new Error(`CORS blocked origin: ${origin}`));
   },
@@ -36,6 +48,7 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
 
+// Root endpoint
 app.get('/', (req, res) => {
   res.json({
     name: 'CampusFind API',
@@ -43,6 +56,7 @@ app.get('/', (req, res) => {
   });
 });
 
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
@@ -50,17 +64,20 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/claims', claimRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Not found handler
 app.use((req, res) => {
   res.status(404).json({
     message: 'API route not found'
   });
 });
 
+// Error handler
 app.use((err, req, res, next) => {
   console.error(err);
 
@@ -69,6 +86,7 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Start server after connecting to MongoDB
 async function start() {
   if (!process.env.MONGO_URI) {
     console.error(
@@ -83,6 +101,7 @@ async function start() {
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`CampusFind API running on port ${PORT}`);
+      console.log('Allowed frontend origins:', allowedOrigins);
     });
   } catch (err) {
     console.error('Startup error:', err.message);
