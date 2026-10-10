@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -14,14 +15,19 @@ const PORT = process.env.PORT || 5001;
 
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')
-  .map(x => x.trim())
+  .map((origin) => origin.trim())
   .filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      allowedOrigins.includes('*')
+    ) {
       return callback(null, true);
     }
+
     return callback(new Error(`CORS blocked origin: ${origin}`));
   },
   credentials: true
@@ -38,7 +44,10 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, service: 'CampusFind API' });
+  res.json({
+    ok: true,
+    service: 'CampusFind API'
+  });
 });
 
 app.use('/api/auth', authRoutes);
@@ -47,11 +56,14 @@ app.use('/api/claims', claimRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.use((req, res) => {
-  res.status(404).json({ message: 'API route not found' });
+  res.status(404).json({
+    message: 'API route not found'
+  });
 });
 
 app.use((err, req, res, next) => {
   console.error(err);
+
   res.status(err.status || 500).json({
     message: err.message || 'Server error'
   });
@@ -59,23 +71,25 @@ app.use((err, req, res, next) => {
 
 async function start() {
   if (!process.env.MONGO_URI) {
-    console.error('MONGO_URI is missing. Create server/.env from .env.example.');
+    console.error(
+      'MONGO_URI is missing. Configure it in server/.env or Render environment variables.'
+    );
     process.exit(1);
   }
 
-  await mongoose.connect(process.env.MONGO_URI);
-  console.log('MongoDB connected');
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('MongoDB connected');
 
-  if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
-      console.log(`CampusFind API running at http://localhost:${PORT}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`CampusFind API running on port ${PORT}`);
     });
+  } catch (err) {
+    console.error('Startup error:', err.message);
+    process.exit(1);
   }
 }
 
-start().catch(err => {
-  console.error('Startup error:', err.message);
-  process.exit(1);
-});
+start();
 
 export default app;
